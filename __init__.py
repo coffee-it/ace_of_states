@@ -25,8 +25,9 @@ def open_db_from_file(absolut_path):
 def os_exists(path):
     try:
         return os.stat(path)[0]
-    except OSError as e:
-        if e.errno == errno.ENOENT:
+    except Exception as e:
+        errno = e.args[0]
+        if errno == errno.ENOENT:
             return 0
         raise e
 
@@ -106,11 +107,12 @@ class Ace_of_States():
     def read_persistant(self, db_label:str, variable:str, default:str = None) -> str|None:
         """Read from persistant storage"""
         if not db_label in self.PERSISTANT_FILES:
-            """
-            TODO Необходимо дополнительно проверять что файл создан на ФС
-            """
-            log_aos.debug("Label %s not in PERSISTANT_FILES" % db_label)
-            return default
+            # but
+            if os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
+                self.PERSISTANT_FILES.update({db_label: btree.open(open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
+            else:
+                log_aos.debug("Label %s not in PERSISTANT_FILES" % db_label)
+                return default
         value = self.low_read(self.PERSISTANT_FILES[db_label], variable)
         return value if value else default
 
@@ -152,7 +154,6 @@ def write(handler, data):
         res = AOS_Service.write_persistant(label, variable, value)
     else:
         res = AOS_Service.write_temporary(label, variable, value)
-    """ TODO res is empty All time=> Fail """
     handler_reply(handler, {'Status': 'OK' if res else 'Fail'})
 
 def read(handler, data):
