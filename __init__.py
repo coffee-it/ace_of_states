@@ -60,8 +60,8 @@ class Ace_of_States():
             if not db_label in self.TEMP_IO_STREAMS:
                 log_aos.debug("[%s] Create btree IO instance" % db_label)
                 self.TEMP_IO_STREAMS.update({db_label: btree.open(uio.BytesIO())})
-            func(self, db_label, variable, value)
-            
+            return func(self, db_label, variable, value)
+
         return creation_checking
 
     def persistant_created(func):
@@ -73,14 +73,14 @@ class Ace_of_States():
                         os.mkdir(PERSISTANT_DB_PATH)
                     log_aos.debug("[%s] Create btree IO instance" % db_label)
                 self.PERSISTANT_FILES.update({db_label: btree.open(open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
-            func(self, db_label, variable, value)
-            
+            return func(self, db_label, variable, value)
+
         return creation_checking
     @temp_created
     def write_temporary(self, db_label:str, variable:str, value:str) -> bool:
         """Write to temporary storage"""
         if self.read_temporary(db_label, variable) == value:
-            log_aos.debug("[%s] Variable %s is already %s" % (db_label, variable, value))
+            log_aos.debug("[%s] Variable %s is already \"%s\"" % (db_label, variable, value))
             return True
         log_aos.debug("[%s] Write %s to %s" % (db_label, value, variable))
         return self.low_write(self.TEMP_IO_STREAMS[db_label], variable, value)
