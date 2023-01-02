@@ -103,6 +103,8 @@ class Ace_of_States_Basis():
         Добавляет к variable разность м/у новым и текущим значением value
         если новое значение превышает текущее. В противном случае оставляем без изменений.
         """
+        pass
+
 
     @staticmethod
     def safe_restore_type(typeclass, data: str):
