@@ -58,53 +58,70 @@ class Ace_of_States_Basis():
     def transform_value(func):
         """ Декоратор, проверяет значения и трансформирует в int"""
         def banana_transform(self, db_label, variable, value):
-            """TODO распихать математику обратно по декорируемым функциям"""
-            # db_label, variable, value = args
             _old = self.read(db_label=db_label, variable=variable)
             _old = _old if _old != None else 0
             _old = int(_old) if str(_old).isdigit() else 0
             _new = int(value) if str(value).isdigit() else 0
-            if func.__name__ ==  "plus":
-                _new = _old + _new
-            elif func.__name__ ==  "minus":
-                _new = _old - _new
-            elif func.__name__ == "join":
-                if _new < _old:
-                    _new = _old + _new
-                else:
-                    _new = _old + (_new - _old)
-            elif func.__name__ == "add":
-                if _new >= _old:
-                    _new = _old + (_new - _old)
-                else:
-                    log_aos.debug("Cant add. Value of %s from %s is less then current" % (variable, db_label))
-
-            self.write(db_label=db_label, variable=variable, value=_new)
+            
+            return func(self, db_label, variable, _new, old_value=_old)
             
         return banana_transform
     @transform_value
-    def plus(self, db_label, variable, value):
+    def plus(self, db_label, variable, value:int, old_value:int=0):
         """ Прибавляет value к текущему значению variable """
-        pass
+        value = old_value + value
+        self.write(db_label=db_label, variable=variable, value=value)
     @transform_value
-    def minus(self, db_label, variable, value):
+    def minus(self, db_label, variable, value:int, old_value:int=0):
         """ Вычитает value из текущего значения variable """
-        pass
+        value = old_value - value
+        self.write(db_label=db_label, variable=variable, value=value)
+
     @transform_value
-    def join(self, db_label, variable, value):
+    def add(self, db_label, variable, value:int, old_value:int=0):
         """
         Добавляет к variable изменение(разность м/у новым и текущим) value.
         Если новое значение меньше - прибавляем полностью.
         """
-        pass
+        if value < old_value:
+            value = old_value + value
+        else:
+            value = old_value + (value - old_value)
+        self.write(db_label=db_label, variable=variable, value=value)
+
     @transform_value
-    def add(self, db_label, variable, value):
+    def extremum(self, db_label, variable, value:int, old_value:int=0):
         """
         Добавляет к variable разность м/у новым и текущим значением value
         если новое значение превышает текущее. В противном случае оставляем без изменений.
         """
-        pass
+        if value >= old_value:
+            value = old_value + (value - old_value)
+        else:
+            log_aos.debug("Cant add. Value of %s from %s is less then current" % (variable, db_label))
+            return False
+        self.write(db_label=db_label, variable=variable, value=value)
 
+    @transform_value
+    def collect(self, db_label, variable, value:int, old_value:int=0):
+        """
+        Собирает (коллекционирует) значение метрики, прибавляя дельту м/у старыми
+        и новыми данными. Учитывает ситуации, когда собираемая метрика обнуляется и счёт начинается с нуля. 
+        """
+        adj_variable = 'adj_{}'.format(variable)
+        adj_value = self.read(db_label=db_label, variable=adj_variable)
+        adj_value = adj_value if adj_value != None else 0
+        adj_value = int(adj_value) if str(adj_value).isdigit() else 0
+        # adj_value уже получен, записываем новые данные
+        self.write(db_label=db_label, variable=adj_variable, value=value)
+        if value >= adj_value:
+            # Собираемые данные равномерно растут, прибавляем дельту от новой и предыдущей метрики
+            value = old_value + (value - adj_value)
+            self.write(db_label=db_label, variable=variable, value=value)
+        elif value < adj_value:
+            # Собираемый объект был обнулён, отсчёт начат сначала
+            value += old_value
+            self.write(db_label=db_label, variable=variable, value=value)
 
     @staticmethod
     def safe_restore_type(typeclass, data: str):
@@ -136,6 +153,7 @@ class Ace_of_States_Basis():
 class AOS_Persistant(Ace_of_States_Basis):
     def persistant_created(func):
         """Decorator which checks that the DB file is available"""
+        """TODO проверять наличие adj_variable и что-то с ней делать"""
         def creation_checking(self, db_label, variable, value):
             if not db_label in self.PERSISTANT_FILES:
                 if not os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
@@ -169,6 +187,7 @@ class AOS_Persistant(Ace_of_States_Basis):
 class AOS_Temporary(Ace_of_States_Basis):
     def temp_created(func):
         """Decorator which checks that the IO buffer is available"""
+        """TODO проверять наличие adj_variable и что-то с ней делать"""
         def creation_checking(self, db_label, variable, value):
             if not db_label in self.TEMP_IO_STREAMS:
                 log_aos.debug("[%s] Create btree IO instance" % db_label)
