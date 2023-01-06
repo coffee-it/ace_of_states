@@ -6,23 +6,23 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("AOS Service")
 
 """ Ace of States ubus service"""
-Persistant_vault = ace.Persistant()
-Temporary_vault = ace.Temporary()
+ACE_Persistant = ace.Persistant()
+ACE_Temporary = ace.Temporary()
 
 def write(handler, data):
     persistant, label, variable, value =  data['persistant'], data['label'], data['variable'], data['value']
     if persistant:
-        res = Persistant_vault.write(label, variable, value)
+        res = ACE_Persistant.write(label, variable, value)
     else:
-        res = Temporary_vault.write(label, variable, value)
+        res = ACE_Temporary.write(label, variable, value)
     handler_reply(handler, {'Status': 'OK' if res else 'Fail'})
 
 def read(handler, data):
     label, variable, persistant =  data['label'], data['variable'], data['persistant']
     if persistant:
-        value = Persistant_vault.read(label, variable)
+        value = ACE_Persistant.read(label, variable)
     else:
-        value = Temporary_vault.read(label, variable)
+        value = ACE_Temporary.read(label, variable)
     handler_reply(handler, {variable: value})
 
 def drop(handler, data):
