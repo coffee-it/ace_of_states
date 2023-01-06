@@ -34,12 +34,12 @@ class Ace_of_States_Basis():
             f = open(absolut_path, 'w+b')
         return f
 
-    def low_write(self, btreeIO, variable: str, value: str) -> bool:
+    def low_write(self, btreeIO, variable: str, value: str, sync: bool = True) -> bool:
         try:
             btreeIO.put(variable, str(value))
             # Flush command writing cache to file. More safety, less quickly.
             # Way to optimize.
-            btreeIO.flush()
+            if sync: self.sync(btreeIO)
         except Exception as e:
             log_aos.error("Low write error [%s, %s]" % (variable, value))
             log_aos.debug("%s" % e)
@@ -50,6 +50,8 @@ class Ace_of_States_Basis():
         value = btreeIO.get(str(variable))
         if value: return value.decode('utf-8')
         return None
+    def sync(self, btreeIO) -> None:
+        btreeIO.flush()
 
     def transform_value(func):
         """ Декоратор, проверяет значения и трансформирует в int"""
@@ -146,46 +148,57 @@ class Ace_of_States_Basis():
                 log_aos.warning("Failed %s type resoring of %s" % (data))
         return False
 
-class AOS_Persistant(Ace_of_States_Basis):
+class Persistant(Ace_of_States_Basis):
     def persistant_created(func):
         """Decorator which checks that the DB file is available"""
         def creation_checking(self, db_label, variable, value):
-            if not db_label in self.PERSISTANT_FILES:
-                if not os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
-                    if not os_exists(PERSISTANT_DB_PATH):
-                        os.mkdir(PERSISTANT_DB_PATH)
-                    log_aos.debug("[%s] Create btree IO instance" % db_label)
-                self.PERSISTANT_FILES.update({db_label: btree.open(self.open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
+            if not db_label is self.VAULT:
+                if not db_label in self.PERSISTANT_FILES:
+                    if not os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
+                        if not os_exists(PERSISTANT_DB_PATH):
+                            os.mkdir(PERSISTANT_DB_PATH)
+                        log_aos.debug("[%s] Create btree IO instance" % db_label)
+                    self.PERSISTANT_FILES.update({db_label: btree.open(self.open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
             return func(self, db_label, variable, value)
+
         return creation_checking
+
     @persistant_created
     def write(self, db_label, variable, value) -> bool:
         """Write to persistant storage"""
         if self.read(db_label, variable) == value:
             log_aos.debug("[%s] Variable \"%s\" is already \"%s\"" % (db_label, variable, value))
             return True
-        log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
-        return self.low_write(self.PERSISTANT_FILES[db_label], variable, value)
+        if db_label is self.VAULT:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % ("VAULT", value, variable))
+            return self.low_write(db_label, variable, value)
+        else:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
+            return self.low_write(self.PERSISTANT_FILES[db_label], variable, value)
 
     def read(self, db_label:str, variable:str, default:str = None) -> str|None:
         """Read from persistant storage"""
-        if not db_label in self.PERSISTANT_FILES:
-            # but
-            if os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
-                self.PERSISTANT_FILES.update({db_label: btree.open(self.open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
-            else:
-                log_aos.debug("Label \"%s\" not in PERSISTANT_FILES" % db_label)
-                return default
-        value = self.low_read(self.PERSISTANT_FILES[db_label], variable)
+        if db_label is self.VAULT:
+            value = self.low_read(db_label, variable)
+        else:
+            if not db_label in self.PERSISTANT_FILES:
+                # but
+                if os_exists("%s/%s" % (PERSISTANT_DB_PATH, db_label)):
+                    self.PERSISTANT_FILES.update({db_label: btree.open(self.open_db_from_file("%s/%s" % (PERSISTANT_DB_PATH, db_label)))})
+                else:
+                    log_aos.debug("Label \"%s\" not in PERSISTANT_FILES" % db_label)
+                    return default
+            value = self.low_read(self.PERSISTANT_FILES[db_label], variable)
         return value if value else default
 
-class AOS_Temporary(Ace_of_States_Basis):
+class Temporary(Ace_of_States_Basis):
     def temp_created(func):
         """Decorator which checks that the IO buffer is available"""
         def creation_checking(self, db_label, variable, value):
-            if not db_label in self.TEMP_IO_STREAMS:
-                log_aos.debug("[%s] Create btree IO instance" % db_label)
-                self.TEMP_IO_STREAMS.update({db_label: btree.open(uio.BytesIO())})
+            if not db_label is self.VAULT:
+                if not db_label in self.TEMP_IO_STREAMS:
+                    log_aos.debug("[%s] Create btree IO instance" % db_label)
+                    self.TEMP_IO_STREAMS.update({db_label: btree.open(uio.BytesIO())})
             return func(self, db_label, variable, value)
 
         return creation_checking
@@ -196,13 +209,20 @@ class AOS_Temporary(Ace_of_States_Basis):
         if self.read(db_label, variable) == value:
             log_aos.debug("[%s] Variable \"%s\" is already \"%s\"" % (db_label, variable, value))
             return True
-        log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
-        return self.low_write(self.TEMP_IO_STREAMS[db_label], variable, value)
+        if db_label is self.VAULT:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % ("VAULT", value, variable))
+            return self.low_write(db_label, variable, value)
+        else:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
+            return self.low_write(self.TEMP_IO_STREAMS[db_label], variable, value, sync=False)
 
     def read(self, db_label:str, variable:str, default:str = None) -> str|None:
         """Read from temporary storage"""
-        if not db_label in self.TEMP_IO_STREAMS:
-            log_aos.debug("Label \"%s\" not in TEMP_IO_STREAMS" % db_label)
-            return default
-        value = self.low_read(self.TEMP_IO_STREAMS[db_label], variable)
+        if db_label is self.VAULT:
+            value = self.low_read(db_label, variable)
+        else:
+            if not db_label in self.TEMP_IO_STREAMS:
+                log_aos.debug("Label \"%s\" not in TEMP_IO_STREAMS" % db_label)
+                return default
+            value = self.low_read(self.TEMP_IO_STREAMS[db_label], variable)
         return value if value else default

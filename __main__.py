@@ -6,8 +6,8 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("AOS Service")
 
 """ Ace of States ubus service"""
-Persistant_vault = ace.AOS_Persistant()
-Temporary_vault = ace.AOS_Temporary()
+Persistant_vault = ace.Persistant()
+Temporary_vault = ace.Temporary()
 
 def write(handler, data):
     persistant, label, variable, value =  data['persistant'], data['label'], data['variable'], data['value']
