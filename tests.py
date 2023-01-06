@@ -29,7 +29,7 @@ for ace in [ACE_Temporary, ACE_Persistant]:
     ace.collect('test_db', 'variable', 10)   # 130
     ace.collect('test_db', 'variable', 100)  # 220
     ace.collect('test_db', 'variable', 80)   # 300
-    assert ace.read('test_db', 'variable') == "300", 'Is not 300. Relax.'
+    assert ace.read('test_db', 'variable') == "300", 'Bad collect. Is not 300 You dodged, this time'
     ace.add('test_db', 'variable', 100)      # 400
     ace.add('test_db', 'variable', 666)      # 666
     ace.add('test_db', 'variable', 34)       # 700
