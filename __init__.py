@@ -58,8 +58,8 @@ class Ace_of_States_Basis():
         def banana_transform(self, db_label, variable, value):
             _old = self.read(db_label=db_label, variable=variable)
             _old = _old if _old != None else 0
-            _old = int(_old) if str(_old).isdigit() else 0
-            _new = int(value) if str(value).isdigit() else 0
+            _old = int(_old) if str(_old).lstrip('-').isdigit() else 0
+            _new = int(value) if str(value).lstrip('-').isdigit() else 0
             
             return func(self, db_label, variable, _new, old_value=_old)
             
