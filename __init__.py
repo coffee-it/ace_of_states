@@ -1,5 +1,6 @@
 #!/usr/bin/micropython
 import uio, btree, logging, os, errno
+from atsignal import SignalHandler
 from micropython import const
 
 __all__ = ['AOS_Persistant', 'AOS_Temporary']
@@ -25,6 +26,8 @@ class Ace_of_States_Basis():
             self.VAULT = btree.open(self.open_db_from_file(aos_local_vault))
         else:
             self.VAULT = btree.open(uio.BytesIO())
+        SignalHandler.register(2, self._sync_all_persistant)
+        SignalHandler.register(15, self._sync_all_persistant)
 
     def open_db_from_file(self, absolut_path):
         # File DB storage
@@ -34,12 +37,9 @@ class Ace_of_States_Basis():
             f = open(absolut_path, 'w+b')
         return f
 
-    def low_write(self, btreeIO, variable: str, value: str, sync: bool = True) -> bool:
+    def low_write(self, btreeIO, variable: str, value: str) -> bool:
         try:
             btreeIO.put(variable, str(value))
-            # Flush command writing cache to file. More safety, less quickly.
-            # Way to optimize.
-            if sync: self.sync(btreeIO)
         except Exception as e:
             log_aos.error("Low write error [%s, %s]" % (variable, value))
             log_aos.debug("%s" % e)
@@ -52,7 +52,52 @@ class Ace_of_States_Basis():
         return None
     def sync(self, btreeIO) -> None:
         btreeIO.flush()
+        log_aos.debug("Sync IO %s" % btreeIO)
+    def _sync_all_persistant(self) -> None:
+        for f in self.PERSISTANT_FILES:
+            self.sync(self.PERSISTANT_FILES[f])
 
+    ###############################################################
+    ### Temporary
+    ###############################################################
+    def temp_created(func):
+        """Decorator which checks that the IO buffer is available"""
+        def creation_checking(self, db_label, variable, value):
+            if not db_label is self.VAULT:
+                if not db_label in self.TEMP_IO_STREAMS:
+                    log_aos.debug("[%s] Create btree IO instance" % db_label)
+                    self.TEMP_IO_STREAMS.update({db_label: btree.open(uio.BytesIO())})
+            return func(self, db_label, variable, value)
+
+        return creation_checking
+
+    @temp_created
+    def write(self, db_label:str, variable:str, value:str) -> bool:
+        """Write to temporary storage"""
+        if self.read(db_label, variable) == value:
+            log_aos.debug("[%s] Variable \"%s\" is already \"%s\"" % (db_label, variable, value))
+            return True
+        if db_label is self.VAULT:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % ("VAULT", value, variable))
+            return self.low_write(db_label, variable, value)
+        else:
+            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
+            return self.low_write(self.TEMP_IO_STREAMS[db_label], variable, value)
+
+    def read(self, db_label:str, variable:str, default:str = None) -> str|None:
+        """Read from temporary storage"""
+        if db_label is self.VAULT:
+            value = self.low_read(db_label, variable)
+        else:
+            if not db_label in self.TEMP_IO_STREAMS:
+                log_aos.debug("Label \"%s\" not in TEMP_IO_STREAMS" % db_label)
+                return default
+            value = self.low_read(self.TEMP_IO_STREAMS[db_label], variable)
+        return value if value else default
+
+    ###############################################################
+    ### Math
+    ###############################################################
     def transform_value(func):
         """ Декоратор, проверяет значения и трансформирует в int"""
         def banana_transform(self, db_label, variable, value):
@@ -121,6 +166,9 @@ class Ace_of_States_Basis():
             value += old_value
             self.write(db_label=db_label, variable=variable, value=value)
 
+    ###############################################################
+    ### Other
+    ###############################################################
     @staticmethod
     def safe_restore_type(typeclass, data: str):
         if type(data) != str:
@@ -192,37 +240,4 @@ class Persistant(Ace_of_States_Basis):
         return value if value else default
 
 class Temporary(Ace_of_States_Basis):
-    def temp_created(func):
-        """Decorator which checks that the IO buffer is available"""
-        def creation_checking(self, db_label, variable, value):
-            if not db_label is self.VAULT:
-                if not db_label in self.TEMP_IO_STREAMS:
-                    log_aos.debug("[%s] Create btree IO instance" % db_label)
-                    self.TEMP_IO_STREAMS.update({db_label: btree.open(uio.BytesIO())})
-            return func(self, db_label, variable, value)
-
-        return creation_checking
-
-    @temp_created
-    def write(self, db_label:str, variable:str, value:str) -> bool:
-        """Write to temporary storage"""
-        if self.read(db_label, variable) == value:
-            log_aos.debug("[%s] Variable \"%s\" is already \"%s\"" % (db_label, variable, value))
-            return True
-        if db_label is self.VAULT:
-            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % ("VAULT", value, variable))
-            return self.low_write(db_label, variable, value)
-        else:
-            log_aos.debug("[%s] Write \"%s\" to \"%s\"" % (db_label, value, variable))
-            return self.low_write(self.TEMP_IO_STREAMS[db_label], variable, value, sync=False)
-
-    def read(self, db_label:str, variable:str, default:str = None) -> str|None:
-        """Read from temporary storage"""
-        if db_label is self.VAULT:
-            value = self.low_read(db_label, variable)
-        else:
-            if not db_label in self.TEMP_IO_STREAMS:
-                log_aos.debug("Label \"%s\" not in TEMP_IO_STREAMS" % db_label)
-                return default
-            value = self.low_read(self.TEMP_IO_STREAMS[db_label], variable)
-        return value if value else default
+    pass
