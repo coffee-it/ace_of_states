@@ -34,3 +34,5 @@ for ace in [ACE_Temporary, ACE_Persistant]:
     ace.add('test_db', 'variable', 666)      # 666
     ace.add('test_db', 'variable', 34)       # 700
     assert ace.read('test_db', 'variable') == "700", 'Bad add'
+
+ACE_Persistant.sync(ACE_Persistant.PERSISTANT_FILES['test_db'])
