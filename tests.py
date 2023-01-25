@@ -1,12 +1,12 @@
 #!/usr/bin/micropython
-import ace_of_states as aos
+import ace_of_states.multiple as multiple
 
-PERSISTANT_DB_PATH="/tmp/ace_of_states_tests"
-ACE_Persistant = aos.Persistant()
-ACE_Temporary = aos.Temporary()
+multiple.PERSISTANT_DB_PATH="/tmp/ace_of_states_tests"
+AOS_Persistant = multiple.Persistant()
+AOS_Temporary = multiple.Temporary()
 
 """ Ace of States test cases"""
-for ace in [ACE_Temporary, ACE_Persistant]:
+for ace in [AOS_Temporary, AOS_Persistant]:
     print("Test %s" % ace.__class__.__name__)
     assert ace.read('test_db', 'variable') == None, 'Variable not empty'
     assert ace.read('test_db', 'variable', 54) == 54, 'Default value is not returned'
@@ -35,4 +35,5 @@ for ace in [ACE_Temporary, ACE_Persistant]:
     ace.add('test_db', 'variable', 34)       # 700
     assert ace.read('test_db', 'variable') == "700", 'Bad add'
 
-ACE_Persistant.sync(ACE_Persistant.PERSISTANT_FILES['test_db'])
+AOS_Persistant.sync('test_db')
+print("Test complete")
