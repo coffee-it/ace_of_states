@@ -62,8 +62,9 @@ class Ace():
 class AOS():
     def __init__(self, file = None) -> None:
         self.VAULT = None
+        self.fd = None
         if file:
-            fd = Ace.open_db_from_file(file)
+            self.fd = Ace.open_db_from_file(file)
             if not fd:
                 log_aos.error("No such file or direcory: %s" % file)
                 raise DirNotFoundError("No such file or direcory: %s" % file)
@@ -78,30 +79,72 @@ class AOS():
         self.sync()
 
     def register_sync(self):
+        """ Register the execution of sync() method after receiving the SIGINT,SIGTERM signal or exit"""
         SignalHandler.register(2, Ace.sync, self.VAULT)
         SignalHandler.register(15, Ace.sync, self.VAULT)
         atexit(partial(Ace.sync, self.VAULT))
         log_aos.debug("Register sync at exit")
 
-    def write(self, variable: str, value: str, datatype = None) -> bool:
-        """
-        TODO добавить сохранение типа с помощью служебной переменной в базе
-        напр. переменная dict с value = {'a': 1, 'b': 2}
-        запишется как:
-        dict = "{'a': 1, 'b': 2}"
-        dict_type = "dict"
-        и это надо вернуть как dict({'a': 1, 'b': 2})
+    def write(self, variable: str, value) -> bool:
+        """ Write value to db
+            Arguments:
+                - variable - is a db key
+                - value
+
+            Return writing result as True or False
         """
         return Ace.low_write(self.VAULT, variable, value)
 
-    def read(self, variable: str, restore_type: bool = False):
-        """TODO выше"""
-        return Ace.low_read(self.VAULT, variable)
+    def read(self, variable: str, default: str = None) -> str|None:
+        """ Read value from db key
+            Arguments:
+                - variable - is a db key
+                - value
+
+            Return value or default if empty or None
+        """
+        value = Ace.low_read(self.VAULT, variable)
+        return value if value else default
+
+    def save_type(self, variable: str, value) -> bool:
+        """ Save variable type
+            Arguments:
+                - variable - variable name from db
+                - value    - the value whose type will be stored
+
+        Return True or False
+        """
+        datatype = type(value)
+        if datatype not in (int, float, str, dict, list, set, tuple, bytes):
+            log_aos.error("Datatype must be one of int, float, str, dict, list, set, tuple, bytes")
+            return False
+            # raise AceError("Datatype must be one of int, float, str, dict, list, set, tuple, bytes")
+        if hasattr(datatype, "__name__"):
+            datatype = getattr(datatype, "__name__")
+        Ace.low_write(self.VAULT, "_%s_type" % variable, datatype)
+
+    def restore_type(self, variable: str, value: str) -> int|float|str|dict|list|set|tuple|bytes:
+        """ Restore variable type
+            Arguments:
+                - variable - variable name from db
+                - value    - the value of the variable whose type is to be resored
+
+        Return typed or original value
+        """
+        datatype = Ace.low_read(self.VAULT, "_%s_type" % variable)
+        if datatype:
+            datatype = eval(datatype)
+            value = datatype(eval(value))
+        else:
+            log_aos.error("No saving datatype for variable %s" % variable)
+        return value
 
     def sync(self):
+        """ Sync DB to underlaying stream"""
         Ace.sync(self.VAULT)
 
     def close(self):
+        """ Sync DB to underlaying stream, close db instance and fd"""
         self.sync()
         self.VAULT = None
 
@@ -151,7 +194,7 @@ class AOS():
         if value >= old_value:
             value = old_value + (value - old_value)
         else:
-            log_aos.debug("Cant update extremum. Value of \"%s\" from \"%s\" is less then current" % (variable, db_label))
+            log_aos.debug("Cant update extremum. Value of \"%s\" from \"%s\" is less then current" % (variable, self.VAULT))
             return False
         self.write(variable=variable, value=value)
 
