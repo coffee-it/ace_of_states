@@ -65,7 +65,7 @@ class AOS():
         self.fd = None
         if file:
             self.fd = Ace.open_db_from_file(file)
-            if not fd:
+            if not self.fd:
                 log_aos.error("No such file or direcory: %s" % file)
                 raise DirNotFoundError("No such file or direcory: %s" % file)
             self.VAULT = btree.open(Ace.open_db_from_file(file))
