@@ -4,6 +4,7 @@ from functools import partial
 from os import path, stat
 from atsignal import SignalHandler
 from usys import atexit
+from ace_of_states.mathematic import Math
 
 log_aos = logging.getLogger("AOS")
 
@@ -24,7 +25,7 @@ def os_exists(path):
 
 class Ace():
     @staticmethod
-    def open_db_from_file(absolut_path):
+    def get_db_fd(absolut_path):
         _dir=path.dirname(absolut_path)
         if not path.isdir(_dir):
             log_aos.error("No such file or direcory: %s" % _dir)
@@ -64,11 +65,11 @@ class AOS():
         self.VAULT = None
         self.fd = None
         if file:
-            self.fd = Ace.open_db_from_file(file)
+            self.fd = Ace.get_db_fd(file)
             if not self.fd:
                 log_aos.error("No such file or direcory: %s" % file)
                 raise DirNotFoundError("No such file or direcory: %s" % file)
-            self.VAULT = btree.open(Ace.open_db_from_file(file))
+            self.VAULT = btree.open(Ace.get_db_fd(file))
         else:
             self.VAULT = btree.open(uio.BytesIO())
 
@@ -151,70 +152,15 @@ class AOS():
     ###############################################################
     ### Math
     ###############################################################
-    def transform_value(func):
-        """ Декоратор, проверяет значения и трансформирует в int"""
-        def banana_transform(self, variable, value):
-            _old = self.read(variable=variable)
-            _old = _old if _old != None else 0
-            _old = int(_old) if str(_old).lstrip('-').isdigit() else 0
-            _new = int(value) if str(value).lstrip('-').isdigit() else 0
-            
-            return func(self, variable, _new, old_value =_old)
-            
-        return banana_transform
-    @transform_value
-    def plus(self, variable, value:int, old_value:int=0):
-        """ Прибавляет value к текущему значению variable """
-        value = old_value + value
-        self.write(variable=variable, value=value)
-    @transform_value
-    def minus(self, variable, value:int, old_value:int=0):
-        """ Вычитает value из текущего значения variable """
-        value = old_value - value
-        self.write(variable=variable, value=value)
+    def sub_instance(func):
+        def sub(self, variable, value):
+            return func(self, variable, value)
 
-    @transform_value
-    def add(self, variable, value:int, old_value:int=0):
-        """
-        Добавляет к variable изменение(разность м/у новым и текущим) value.
-        Если новое значение меньше - прибавляем полностью.
-        """
-        if value < old_value:
-            value = old_value + value
-        else:
-            value = old_value + (value - old_value)
-        self.write(variable=variable, value=value)
+        return sub
 
-    @transform_value
-    def extremum(self, variable, value:int, old_value:int=0):
-        """
-        Добавляет к variable разность м/у новым и текущим значением value
-        если новое значение превышает текущее. В противном случае оставляем без изменений.
-        """
-        if value >= old_value:
-            value = old_value + (value - old_value)
-        else:
-            log_aos.debug("Cant update extremum. Value of \"%s\" from \"%s\" is less then current" % (variable, self.VAULT))
-            return False
-        self.write(variable=variable, value=value)
+    plus = sub_instance(Math.plus)
+    minus = sub_instance(Math.minus)
+    add = sub_instance(Math.add)
+    extremum = sub_instance(Math.extremum)
+    collect = sub_instance(Math.collect)
 
-    @transform_value
-    def collect(self, variable, value:int, old_value:int=0):
-        """
-        Собирает (коллекционирует) значение метрики, прибавляя дельту м/у старыми
-        и новыми данными. Учитывает ситуации, когда собираемая метрика обнуляется и счёт начинается с нуля. 
-        """
-        adj_variable = 'adj_{}'.format(variable)
-        adj_value = self.read(variable=adj_variable)
-        adj_value = adj_value if adj_value != None else 0
-        adj_value = int(adj_value) if str(adj_value).isdigit() else 0
-        # adj_value уже получен, записываем новые данные
-        self.write(variable=adj_variable, value=value)
-        if value >= adj_value:
-            # Собираемые данные равномерно растут, прибавляем дельту от новой и предыдущей метрики
-            value = old_value + (value - adj_value)
-            self.write(variable=variable, value=value)
-        elif value < adj_value:
-            # Собираемый объект был обнулён, отсчёт начат сначала
-            value += old_value
-            self.write(variable=variable, value=value)
