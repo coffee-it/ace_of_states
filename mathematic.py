@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger("Math")
 
-class Math():
+class _Math():
     def transform_value(func):
         """ Декоратор, проверяет значения и трансформирует в int"""
         def banana_transform(db, variable, value):
@@ -77,3 +77,23 @@ class Math():
             # Собираемый объект был обнулён, отсчёт начат сначала
             value += old_value
             db.write(variable=variable, value=value)
+
+class Math():
+    def __init__(self, db) -> None:
+        """
+        Arguments:
+            db - is AOS instance 
+        """
+        self.db = db
+
+    def sub_instance(func):
+        def sub(self, variable, value):
+            return func(self.db, variable, value)
+
+        return sub
+
+    plus = sub_instance(_Math.plus)
+    minus = sub_instance(_Math.minus)
+    add = sub_instance(_Math.add)
+    extremum = sub_instance(_Math.extremum)
+    collect = sub_instance(_Math.collect)

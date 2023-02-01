@@ -64,6 +64,7 @@ class AOS():
     def __init__(self, file = None) -> None:
         self.VAULT = None
         self.fd = None
+        self.Math = Math(self)
         if file:
             self.fd = Ace.get_db_fd(file)
             if not self.fd:
@@ -148,19 +149,3 @@ class AOS():
         """ Sync DB to underlaying stream, close db instance and fd"""
         self.sync()
         self.VAULT = None
-
-    ###############################################################
-    ### Math
-    ###############################################################
-    def sub_instance(func):
-        def sub(self, variable, value):
-            return func(self, variable, value)
-
-        return sub
-
-    plus = sub_instance(Math.plus)
-    minus = sub_instance(Math.minus)
-    add = sub_instance(Math.add)
-    extremum = sub_instance(Math.extremum)
-    collect = sub_instance(Math.collect)
-
