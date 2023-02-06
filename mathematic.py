@@ -20,14 +20,14 @@ class _Math():
     def plus(db, variable, value:int, old_value:int=0):
         """ Прибавляет value к текущему значению variable """
         value = old_value + value
-        db.write(variable=variable, value=value)
+        return db.write(variable=variable, value=value)
 
     @staticmethod
     @transform_value
     def minus(db, variable, value:int, old_value:int=0):
         """ Вычитает value из текущего значения variable """
         value = old_value - value
-        db.write(variable=variable, value=value)
+        return db.write(variable=variable, value=value)
 
     @staticmethod
     @transform_value
@@ -40,7 +40,7 @@ class _Math():
             value = old_value + value
         else:
             value = old_value + (value - old_value)
-        db.write(variable=variable, value=value)
+        return db.write(variable=variable, value=value)
 
     @staticmethod
     @transform_value
@@ -54,7 +54,7 @@ class _Math():
         else:
             logger.debug("Cant update extremum. Value of \"%s\" from \"%s\" is less then current" % (variable, db.VAULT))
             return False
-        db.write(variable=variable, value=value)
+        return db.write(variable=variable, value=value)
 
     @staticmethod
     @transform_value
@@ -72,11 +72,11 @@ class _Math():
         if value >= adj_value:
             # Собираемые данные равномерно растут, прибавляем дельту от новой и предыдущей метрики
             value = old_value + (value - adj_value)
-            db.write(variable=variable, value=value)
+            return db.write(variable=variable, value=value)
         elif value < adj_value:
             # Собираемый объект был обнулён, отсчёт начат сначала
             value += old_value
-            db.write(variable=variable, value=value)
+            return db.write(variable=variable, value=value)
 
 class Math():
     def __init__(self, db) -> None:
