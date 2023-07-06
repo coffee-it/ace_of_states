@@ -16,27 +16,27 @@ for ace in [AOS_Temporary, AOS_Persistant]:
         assert db.read('variable', 54) == 54, 'Default value is not returned'
         assert db.write('variable', 0), 'Write is broken'
         assert db.read('variable') == "0", 'Writen wrong value'
-        db.minus('variable', 5)
+        db.Math.minus('variable', 5)
         assert db.read('variable') == "-5", 'Bad decrement'
-        db.plus('variable', 10)
+        db.Math.plus('variable', 10)
         assert db.read('variable') == "5", 'Bad increment'
-        db.extremum('variable', 10)
-        db.extremum('variable', 42)
-        db.extremum('variable', 12)
-        db.extremum('variable', 5)
+        db.Math.extremum('variable', 10)
+        db.Math.extremum('variable', 42)
+        db.Math.extremum('variable', 12)
+        db.Math.extremum('variable', 5)
         assert db.read('variable') == "42", 'Bad extremum'
-        db.collect('variable', 8)    # 50
-        db.collect('variable', 58)   # 100
-        db.collect('variable', 5)    # 105
-        db.collect('variable', 15)   # 115
-        db.collect('variable', 20)   # 120
-        db.collect('variable', 10)   # 130
-        db.collect('variable', 100)  # 220
-        db.collect('variable', 80)   # 300
+        db.Math.collect('variable', 8)    # 50
+        db.Math.collect('variable', 58)   # 100
+        db.Math.collect('variable', 5)    # 105
+        db.Math.collect('variable', 15)   # 115
+        db.Math.collect('variable', 20)   # 120
+        db.Math.collect('variable', 10)   # 130
+        db.Math.collect('variable', 100)  # 220
+        db.Math.collect('variable', 80)   # 300
         assert db.read('variable') == "300", 'Bad collect. Is not 300 You dodged, this time'
-        db.add('variable', 100)      # 400
-        db.add('variable', 666)      # 666
-        db.add('variable', 34)       # 700
+        db.Math.add('variable', 100)      # 400
+        db.Math.add('variable', 666)      # 666
+        db.Math.add('variable', 34)       # 700
         assert db.read('variable') == "700", 'Bad add'
 
 uos.remove("/".join((PERSISTANT_DB_PATH, "test_db")))
