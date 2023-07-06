@@ -31,7 +31,7 @@ class _Math():
         Возвращает value для записи если оно выше old_value
         """
         if value >= old_value:
-            return old_value + (value - old_value)
+            return value
         else:
             return None
 
