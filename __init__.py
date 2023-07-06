@@ -5,6 +5,7 @@ from os import path, stat
 from atsignal import SignalHandler
 from usys import atexit
 from ace_of_states.mathematic import Math
+import errno
 
 log_aos = logging.getLogger("AOS")
 
@@ -18,8 +19,7 @@ def os_exists(path):
     try:
         return stat(path)[0]
     except Exception as e:
-        errno = e.args[0]
-        if errno == errno.ENOENT:
+        if e.args[0] == errno.ENOENT:
             return 0
         raise e
 
