@@ -60,6 +60,11 @@ class Ace():
         if value: return value.decode('utf-8')
         return None
 
+    @staticmethod
+    def low_dump(btreeIO):
+        for m in btreeIO.items():
+            yield m
+
 class AOS():
     def __init__(self, file = None) -> None:
         self.VAULT = None
@@ -79,6 +84,9 @@ class AOS():
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.sync()
+
+    def dump(self):
+        return Ace.low_dump(self.VAULT)
 
     def register_sync(self):
         """ Register the execution of sync() method after receiving the SIGINT,SIGTERM signal or exit"""
