@@ -65,6 +65,14 @@ class Ace():
         for m in btreeIO.items():
             yield m
 
+    def low_delete(btreeIO, variable: str) -> bool:
+        if not getattr(btreeIO, 'get', False): raise AceError("btreeIO closed")
+        try:
+            del btreeIO[str(variable)]
+            return True
+        except KeyError:
+            return True
+
 class AOS():
     def __init__(self, file = None) -> None:
         self.VAULT = None
@@ -106,15 +114,24 @@ class AOS():
         return Ace.low_write(self.VAULT, variable, value)
 
     def read(self, variable: str, default: str = None) -> str|None:
-        """ Read value from db key
+        """ Read value from db
             Arguments:
                 - variable - is a db key
-                - value
+                - default  - value that returns if variable value is empty or None 
 
-            Return value or default if empty or None
+            Return value or default if value is empty or None
         """
         value = Ace.low_read(self.VAULT, variable)
         return value if value else default
+    
+    def delete(self, variable: str) -> bool:
+        """ Delete key from db
+            Arguments:
+                - variable - is a db key
+
+            Return True
+        """
+        return Ace.low_delete(self.VAULT, variable)
 
     def save_type(self, variable: str, value) -> bool:
         """ Save variable type
