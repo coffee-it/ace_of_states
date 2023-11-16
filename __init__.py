@@ -62,8 +62,7 @@ class Ace():
 
     @staticmethod
     def low_dump(btreeIO):
-        for m in btreeIO.items():
-            yield m
+        return btreeIO.items()
 
     def low_delete(btreeIO, variable: str) -> bool:
         if not getattr(btreeIO, 'get', False): raise AceError("btreeIO closed")
@@ -94,6 +93,7 @@ class AOS():
         self.sync()
 
     def dump(self):
+        """ Return all variable-value pairs """
         return Ace.low_dump(self.VAULT)
 
     def register_sync(self):
